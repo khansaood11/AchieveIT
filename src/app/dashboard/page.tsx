@@ -257,7 +257,7 @@ export default function DashboardPage() {
             </div>
             <div className="text-center text-xs md:text-sm">
               <p className="font-semibold text-foreground">A Design Engineering Project</p>
-              <p>Varude Dhiraj, Patil Aratiben, Chaudhary Abdullah, Jibhai Mahmad Salim, & Khan Saood Ahemd</p>
+              <p>Khan Saood Ahemd, Varude Dhiraj, Patil Aratiben, Chaudhary Abdullah, & Jibhai Mahmad Salim </p>
               <p className="mt-2 text-xs">Guided by Prof. Mrs. Tanvi Patel | Prime Institute of Engineering and Technology | 2024-2025</p>
             </div>
             <div className="flex flex-col items-center">
