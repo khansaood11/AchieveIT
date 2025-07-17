@@ -28,10 +28,11 @@ type SignupFormValues = z.infer<typeof signupSchema>;
 export default function SignupPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { signUpWithEmail, signInWithGoogle, loading: authLoading } = useAuth();
+  const { user, signUpWithEmail, signInWithGoogle, loading: authLoading } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   const form = useForm<SignupFormValues>({
     resolver: zodResolver(signupSchema),
@@ -66,18 +67,30 @@ export default function SignupPage() {
     setIsGoogleLoading(true);
     try {
       await signInWithGoogle();
+      setIsRedirecting(true);
       // The redirect is handled by the AuthProvider
     } catch (error: any) {
-      if (error.code === 'auth/popup-closed-by-user') return;
+      if (error.code === 'auth/popup-closed-by-user') {
+        setIsGoogleLoading(false);
+        return;
+      }
       toast({
         variant: 'destructive',
         title: 'Sign Up Failed',
         description: error.message || 'An unexpected error occurred.',
       });
-    } finally {
       setIsGoogleLoading(false);
     }
   };
+
+  if (isRedirecting || (authLoading && user)) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center">
+        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+        <p className="text-muted-foreground">Logging in and loading your dashboard...</p>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -189,7 +202,7 @@ export default function SignupPage() {
             </div>
             <div className="text-center text-xs md:text-sm">
                 <p className="font-semibold text-foreground">A Design Engineering Project</p>
-                <p>Khan Saood Ahemd, Varude Dhiraj, Patil Aratiben, Chaudhary Abdullah, &amp; Jibhai Mahmad Salim</p>
+                <p>Varude Dhiraj, Patil Aratiben, Chaudhary Abdullah, Jibhai Mahmad Salim, &amp; Khan Saood Ahemd</p>
                 <p className="mt-2 text-xs">Guided by Prof. Mrs. Tanvi Patel | Prime Institute of Engineering and Technology | 2024-2025</p>
             </div>
             <div className="flex flex-col items-center">
