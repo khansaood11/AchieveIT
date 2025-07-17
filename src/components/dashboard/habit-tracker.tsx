@@ -5,16 +5,32 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import type { Habit } from '@/lib/types';
 import { getDay } from 'date-fns';
+import { Skeleton } from '../ui/skeleton';
 
 interface HabitTrackerProps {
   habits: Habit[];
   onHabitChange: (habitId: string, dayIndex: number, isCompleted: boolean) => void;
+  isLoading: boolean;
 }
 
 const weekDays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
-export const HabitTracker: React.FC<HabitTrackerProps> = ({ habits, onHabitChange }) => {
+export const HabitTracker: React.FC<HabitTrackerProps> = ({ habits, onHabitChange, isLoading }) => {
   const todayIndex = getDay(new Date());
+
+  if (isLoading) {
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="font-headline">Habit Tracker</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+            </CardContent>
+        </Card>
+    )
+  }
 
   return (
     <Card className="col-span-1 lg:col-span-2">
