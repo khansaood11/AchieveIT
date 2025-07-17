@@ -1,3 +1,4 @@
+
 export type Goal = {
   id: string;
   title: string;
@@ -21,3 +22,18 @@ export type GoalTemplate = {
   description: string;
   category: Goal['category'];
 };
+
+export interface HealthMetrics {
+  height: number | string;
+  weight: number | string;
+  bloodPressure: { systolic: number | string; diastolic: number | string };
+  stepCount: number;
+  heartRate: number | string;
+  calories: number | string;
+}
+
+export interface ActivityData {
+  steps: { name: string; steps: number }[];
+  glucose: { name: string; level: number }[];
+  bodyFat: { name: string; percent: number }[];
+}
