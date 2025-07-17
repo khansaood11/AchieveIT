@@ -72,7 +72,7 @@ export const AiSuggestionDialog: React.FC<AiSuggestionDialogProps> = ({ isOpen, 
           <DialogDescription>Let AI help you set realistic and achievable goals based on your progress.</DialogDescription>
         </DialogHeader>
 
-        {!suggestion && (
+        {!suggestion && !isLoading && (
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
               <FormField
@@ -112,7 +112,7 @@ export const AiSuggestionDialog: React.FC<AiSuggestionDialogProps> = ({ isOpen, 
         )}
 
         {isLoading && (
-            <div className="flex items-center justify-center p-8">
+            <div className="flex items-center justify-center p-8 min-h-[200px]">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 <p className="ml-4">Generating suggestions...</p>
             </div>
@@ -122,20 +122,15 @@ export const AiSuggestionDialog: React.FC<AiSuggestionDialogProps> = ({ isOpen, 
           <div className="space-y-4 max-h-[60vh] overflow-y-auto p-1">
             <Card>
               <CardHeader>
-                <CardTitle className='font-headline'>Suggested Goals</CardTitle>
+                <CardTitle className='font-headline'>AI Suggestions</CardTitle>
               </CardHeader>
-              <CardContent>
-                <p className="whitespace-pre-wrap">{suggestion.suggestedGoals}</p>
+              <CardContent className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap">
+                {suggestion}
               </CardContent>
             </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className='font-headline'>Reasoning</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="whitespace-pre-wrap">{suggestion.reasoning}</p>
-              </CardContent>
-            </Card>
+             <DialogFooter>
+                <Button onClick={() => setSuggestion(null)}>Ask Again</Button>
+              </DialogFooter>
           </div>
         )}
       </DialogContent>
