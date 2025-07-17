@@ -13,7 +13,7 @@ interface HeaderProps {
 }
 
 export const Header: FC<HeaderProps> = ({ onAddGoal, onAiSuggest }) => {
-  const { user, signOut, fitToken, connectGoogleFit, isConnectingFit } = useAuth();
+  const { user, signOut, fitToken, connectGoogleFit, disconnectGoogleFit, isConnectingFit } = useAuth();
   
   return (
     <header className="flex items-center justify-between p-4 border-b bg-card rounded-t-lg flex-wrap gap-2">
@@ -38,7 +38,7 @@ export const Header: FC<HeaderProps> = ({ onAddGoal, onAiSuggest }) => {
           <Plus className="md:mr-2"/>
           <span className="hidden md:inline">Add New Goal</span>
         </Button>
-        {user && <UserProfile user={user} fitToken={fitToken} onSignOut={signOut} onConnectFit={connectGoogleFit} />}
+        {user && <UserProfile user={user} fitToken={fitToken} onSignOut={signOut} onConnectFit={connectGoogleFit} onDisconnectFit={disconnectGoogleFit} />}
       </div>
     </header>
   );
