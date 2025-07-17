@@ -26,7 +26,8 @@ export default function DashboardPage() {
   
   const [goals, setGoals] = useState<Goal[]>([]);
   const [habits, setHabits] = useState<Habit[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [goalsLoading, setGoalsLoading] = useState(true);
+  const [habitsLoading, setHabitsLoading] = useState(true);
 
   const [isAddGoalOpen, setAddGoalOpen] = useState(false);
   const [isAiSuggestOpen, setAiSuggestOpen] = useState(false);
@@ -38,27 +39,31 @@ export default function DashboardPage() {
       return;
     }
     if (!user) {
-      setIsLoading(false);
       // AuthProvider will handle redirect
       return;
     };
 
-    setIsLoading(true);
+    setGoalsLoading(true);
+    setHabitsLoading(true);
+
     const goalsQuery = query(collection(db, `users/${user.uid}/goals`), orderBy('createdAt', 'desc'));
     const habitsQuery = query(collection(db, `users/${user.uid}/habits`));
 
     const unsubscribeGoals = onSnapshot(goalsQuery, (snapshot) => {
       const goalsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Goal));
       setGoals(goalsData);
-      setIsLoading(false); // Set loading to false after goals are fetched
+      setGoalsLoading(false);
     }, (error) => {
       console.error("Error fetching goals:", error);
       toast({ variant: "destructive", title: "Error", description: "Could not fetch goals." });
-      setIsLoading(false);
+      setGoalsLoading(false);
     });
 
     const unsubscribeHabits = onSnapshot(habitsQuery, (snapshot) => {
         const habitsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Habit));
+        setHabits(habitsData);
+        setHabitsLoading(false);
+
         if (habitsData.length === 0 && !snapshot.metadata.hasPendingWrites) {
             // Create default habits if none exist
             const defaultHabits: Omit<Habit, 'id'>[] = [
@@ -67,15 +72,13 @@ export default function DashboardPage() {
             ];
             defaultHabits.forEach(async (habit) => {
                 const newHabitRef = doc(collection(db, `users/${user.uid}/habits`));
-                // No need to set the doc here, the onSnapshot will catch the write and update state
                 await setDoc(newHabitRef, { ...habit, id: newHabitRef.id });
             });
-        } else {
-            setHabits(habitsData);
         }
     }, (error) => {
         console.error("Error fetching habits:", error);
         toast({ variant: "destructive", title: "Error", description: "Could not fetch habits." });
+        setHabitsLoading(false);
     });
 
     return () => {
@@ -159,23 +162,17 @@ export default function DashboardPage() {
     }
   };
   
-  if (isLoading || authLoading) {
+  if (authLoading) {
+    // This is the initial auth check loading, a full page loader is appropriate here.
     return (
-      <div className="min-h-screen bg-background p-4 md:p-8">
-        <div className="max-w-7xl mx-auto space-y-8">
-            <Skeleton className="h-20 w-full" />
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <Skeleton className="h-24 col-span-1" />
-                <Skeleton className="h-96 col-span-1 lg:col-span-2" />
-            </div>
-             <Skeleton className="h-48 w-full" />
-            <Skeleton className="h-64 w-full" />
-        </div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>
     );
   }
 
   if (!user) {
+    // This state should be brief as the AuthProvider handles redirection.
     return (
         <div className="min-h-screen bg-background flex flex-col items-center justify-center">
             <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
@@ -195,18 +192,24 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-1 space-y-6">
                     <MotivationalQuote />
-                    <ProgressCharts goals={goals} />
+                    {goalsLoading ? <Skeleton className="h-80 w-full" /> : <ProgressCharts goals={goals} />}
                 </div>
                 <div className="lg:col-span-2">
-                    {fitToken ? <FitSummaryCard token={fitToken} /> : <div className="h-full min-h-[300px] w-full bg-muted rounded-lg flex items-center justify-center text-center p-4"><p>Connect Google Fit to see your activity summary.</p></div>}
+                    <FitSummaryCard token={fitToken} />
                 </div>
             </div>
 
-            <HabitTracker habits={habits} onHabitChange={handleHabitChange} />
+            <HabitTracker habits={habits} onHabitChange={handleHabitChange} isLoading={habitsLoading} />
             
             <div>
               <h2 className="text-2xl font-bold font-headline mb-4">Your Goals</h2>
-              {inProgressGoals.length > 0 ? (
+              {goalsLoading ? (
+                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    <Skeleton className="h-64" />
+                    <Skeleton className="h-64" />
+                    <Skeleton className="h-64" />
+                 </div>
+              ) : inProgressGoals.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                   {inProgressGoals.map((goal) => (
                     <GoalCard 
@@ -225,7 +228,7 @@ export default function DashboardPage() {
               )}
             </div>
             
-            {goals.some(g => g.isCompleted) && (
+            { !goalsLoading && goals.some(g => g.isCompleted) && (
               <div>
                 <h2 className="text-2xl font-bold font-headline mt-8 mb-4">Completed Goals</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -257,7 +260,7 @@ export default function DashboardPage() {
             </div>
             <div className="text-center text-xs md:text-sm">
               <p className="font-semibold text-foreground">A Design Engineering Project</p>
-              <p>Khan Saood Ahemd, Varude Dhiraj, Patil Aratiben, Chaudhary Abdullah, & Jibhai Mahmad Salim </p>
+              <p>Varude Dhiraj, Patil Aratiben, Chaudhary Abdullah, Jibhai Mahmad Salim, & Khan Saood Ahemd</p>
               <p className="mt-2 text-xs">Guided by Prof. Mrs. Tanvi Patel | Prime Institute of Engineering and Technology | 2024-2025</p>
             </div>
             <div className="flex flex-col items-center">
