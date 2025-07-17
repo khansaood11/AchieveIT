@@ -18,10 +18,10 @@ import { collection, deleteDoc, doc, onSnapshot, orderBy, query, setDoc, updateD
 import { CheckCircle, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
-import { FitSummaryCard } from '@/components/dashboard/fit-summary-card';
+import { HealthDashboard } from '@/components/dashboard/health-dashboard';
 
 export default function DashboardPage() {
-  const { user, loading: authLoading, fitToken } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -162,22 +162,11 @@ export default function DashboardPage() {
     }
   };
   
-  if (authLoading) {
-    // This is the initial auth check loading, a full page loader is appropriate here.
+  if (authLoading || !user) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>
-    );
-  }
-
-  if (!user) {
-    // This state should be brief as the AuthProvider handles redirection.
-    return (
-        <div className="min-h-screen bg-background flex flex-col items-center justify-center">
-            <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-            <p className="text-muted-foreground">Redirecting to login...</p>
-        </div>
     );
   }
 
@@ -189,18 +178,19 @@ export default function DashboardPage() {
         <div className="bg-card shadow-lg rounded-lg">
           <Header onAddGoal={() => handleOpenAddGoal()} onAiSuggest={() => setAiSuggestOpen(true)} />
           <main className="p-4 md:p-6 space-y-8">
+            
+            <HealthDashboard />
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-1 space-y-6">
                     <MotivationalQuote />
                     {goalsLoading ? <Skeleton className="h-80 w-full" /> : <ProgressCharts goals={goals} />}
                 </div>
                 <div className="lg:col-span-2">
-                    <FitSummaryCard token={fitToken} />
+                     <HabitTracker habits={habits} onHabitChange={handleHabitChange} isLoading={habitsLoading} />
                 </div>
             </div>
 
-            <HabitTracker habits={habits} onHabitChange={handleHabitChange} isLoading={habitsLoading} />
-            
             <div>
               <h2 className="text-2xl font-bold font-headline mb-4">Your Goals</h2>
               {goalsLoading ? (
