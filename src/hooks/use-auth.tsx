@@ -13,7 +13,7 @@ import {
   createUserWithEmailAndPassword,
   updateProfile,
   linkWithPopup,
-  signInWithCredential,
+  reauthenticateWithPopup,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { useRouter, usePathname } from 'next/navigation';
@@ -31,9 +31,24 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<any>;
   signOut: () => Promise<void>;
   connectGoogleFit: () => Promise<void>;
+  disconnectGoogleFit: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+const createGoogleProvider = () => {
+    const provider = new GoogleAuthProvider();
+    provider.addScope('https://www.googleapis.com/auth/userinfo.profile');
+    provider.addScope('https://www.googleapis.com/auth/userinfo.email');
+    // Add all required fitness scopes
+    provider.addScope('https://www.googleapis.com/auth/fitness.activity.read');
+    provider.addScope('https://www.googleapis.com/auth/fitness.body.read');
+    provider.addScope('https://www.googleapis.com/auth/fitness.blood_pressure.read');
+    provider.addScope('https://www.googleapis.com/auth/fitness.blood_glucose.read');
+    provider.addScope('https://www.googleapis.com/auth/fitness.heart_rate.read');
+    provider.addScope('https://www.googleapis.com/auth/fitness.nutrition.read');
+    return provider;
+}
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -52,15 +67,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
-      if(user) {
-        const storedToken = sessionStorage.getItem('fit_token');
-        if (storedToken) {
-          setFitToken(storedToken);
-        }
-      } else {
-        // Clear token if user logs out
+      if(!user) {
         setFitToken(null);
-        sessionStorage.removeItem('fit_token');
       }
       setLoading(false);
     });
@@ -115,8 +123,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   
   const signInWithGoogle = async () => {
     if (!isFirebaseConfigured) return Promise.reject(new Error("Firebase not configured"));
-    const provider = new GoogleAuthProvider();
+    const provider = createGoogleProvider();
     const result = await signInWithPopup(auth, provider);
+    const credential = GoogleAuthProvider.credentialFromResult(result);
+    if (credential?.accessToken) {
+      setFitToken(credential.accessToken);
+    }
     return handleUserCredential(result);
   };
 
@@ -127,34 +139,43 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       
       setIsConnectingFit(true);
-      const provider = new GoogleAuthProvider();
-      provider.addScope('https://www.googleapis.com/auth/fitness.activity.read');
+      const provider = createGoogleProvider();
       
       try {
           const result = await linkWithPopup(auth.currentUser, provider);
           const credential = GoogleAuthProvider.credentialFromResult(result);
           if (credential?.accessToken) {
               setFitToken(credential.accessToken);
-              sessionStorage.setItem('fit_token', credential.accessToken);
               toast({ title: 'Success!', description: 'Google Fit connected successfully.' });
           } else {
              throw new Error("Could not get access token.");
           }
       } catch (error: any) {
           if (error.code === 'auth/credential-already-in-use') {
+            toast({ title: 'Re-authenticating', description: 'Account already linked, re-authenticating to refresh permissions.'});
             try {
-              const credential = GoogleAuthProvider.credentialFromError(error);
-              if (credential) {
-                const result = await signInWithCredential(auth, credential);
-                 if (result.user && credential.accessToken) {
-                    setFitToken(credential.accessToken);
-                    sessionStorage.setItem('fit_token', credential.accessToken);
-                    toast({ title: 'Success!', description: 'Google Fit connected successfully.' });
-                 }
+              const result = await reauthenticateWithPopup(auth.currentUser, provider);
+              const credential = GoogleAuthProvider.credentialFromResult(result);
+               if (result.user && credential?.accessToken) {
+                  setFitToken(credential.accessToken);
+                  toast({ title: 'Success!', description: 'Refreshed Google Fit connection.' });
+               }
+            } catch (reauthError: any) {
+               console.error("Error re-authenticating:", reauthError);
+               toast({ variant: 'destructive', title: 'Connection Failed', description: 'Could not re-authenticate to refresh permissions.' });
+            }
+          } else if (error.code === 'auth/requires-recent-login') {
+            toast({ title: 'Security Check', description: 'Please sign in again to connect Google Fit.'});
+            try {
+              const result = await reauthenticateWithPopup(auth.currentUser, provider);
+              const credential = GoogleAuthProvider.credentialFromResult(result);
+              if (credential?.accessToken) {
+                setFitToken(credential.accessToken);
+                toast({ title: 'Success!', description: 'Google Fit connected successfully.' });
               }
-            } catch (mergeError: any) {
-               console.error("Error merging accounts:", mergeError);
-               toast({ variant: 'destructive', title: 'Connection Failed', description: 'Could not link accounts. Please contact support.' });
+            } catch (reauthError) {
+                console.error("Reauthentication failed", reauthError);
+                toast({ variant: 'destructive', title: 'Connection Failed', description: 'Could not re-authenticate.' });
             }
           } else if (error.code !== 'auth/popup-closed-by-user') {
             console.error("Error connecting Google Fit:", error);
@@ -165,15 +186,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
   };
 
+  const disconnectGoogleFit = async () => {
+    if (!fitToken) return;
+    try {
+        // Revoke the token
+        await fetch(`https://oauth2.googleapis.com/revoke?token=${fitToken}`, {
+            method: 'POST',
+            headers: { 'Content-type': 'application/x-www-form-urlencoded' }
+        });
+    } catch(error) {
+        console.error("Error revoking Google Fit token:", error);
+        // We still want to clear the token locally even if revocation fails
+    } finally {
+        setFitToken(null);
+        toast({ title: 'Disconnected', description: 'Google Fit has been disconnected.'});
+    }
+  }
+
   const signOut = async () => {
     if (!isFirebaseConfigured) return;
     await firebaseSignOut(auth);
-    // Force redirect to the landing page immediately after signing out.
-    // This prevents the useEffect hook from incorrectly redirecting to /login.
     window.location.href = '/';
   };
 
-  const value = { user, loading, fitToken, isConnectingFit, signInWithEmail, signUpWithEmail, signInWithGoogle, signOut, connectGoogleFit };
+  const value = { user, loading, fitToken, isConnectingFit, signInWithEmail, signUpWithEmail, signInWithGoogle, signOut, connectGoogleFit, disconnectGoogleFit };
   
    if (!isFirebaseConfigured && !loading) {
      return (
@@ -186,7 +222,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
      )
   }
 
-  if (loading && pathname !== '/') {
+  if (loading) {
       return (
           <div className="flex h-screen items-center justify-center">
               <Loader2 className="h-8 w-8 animate-spin" />
